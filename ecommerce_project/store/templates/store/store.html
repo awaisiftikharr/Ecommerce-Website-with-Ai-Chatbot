@@ -1,0 +1,165 @@
+{% extends 'store/base.html' %}
+
+{% block content %}
+
+<div class="p-5 mb-4 bg-light rounded-3 shadow-sm text-center"
+     style="background: linear-gradient(135deg, #0d6efd, #0099ff); color: white;">
+    <div class="container-fluid py-3">
+        <h1 class="display-5 fw-bold">Welcome to SmartFinds.pk</h1>
+        <p class="fs-4">AI-Powered recommendations tailored just for you.</p>
+        <a class="btn btn-warning btn-lg" href="#products">Start Shopping</a>
+    </div>
+</div>
+
+<h3 id="products" class="mb-4 pb-2 border-bottom">Latest Products</h3>
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    {% for product in products %}
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+
+            {% if product.image %}
+                <img src="{{ product.image.url }}"
+                     class="card-img-top p-3"
+                     alt="{{ product.name }}"
+                     style="height: 200px; object-fit: contain;">
+            {% else %}
+                <div class="d-flex align-items-center justify-content-center bg-light"
+                     style="height: 200px;">
+                    <span class="text-muted">No Image</span>
+                </div>
+            {% endif %}
+
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <p class="card-text text-truncate">{{ product.description }}</p>
+
+                <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <span class="h5 mb-0 text-success fw-bold">
+                        ${{ product.price }}
+                    </span>
+
+                    <!-- ADD TO CART BUTTON -->
+                    <button
+                        data-product="{{ product.id }}"
+                        data-action="add"
+                        class="btn btn-success btn-sm update-cart">
+                        Add to Cart
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- CHAT ICON -->
+<div id="chat-icon"
+     style="position: fixed; bottom: 20px; right: 20px; background: #0d6efd; color: white;
+            width: 60px; height: 60px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 30px;
+            cursor: pointer; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"
+     onclick="toggleChat()">
+    💬
+</div>
+
+<!-- CHAT WINDOW -->
+<div id="chat-window"
+     style="display: none; position: fixed; bottom: 90px; right: 20px;
+            width: 300px; height: 400px; background: white; border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); z-index: 1000;
+            flex-direction: column; overflow: hidden;">
+    <div style="background: #0d6efd; color: white; padding: 10px; font-weight: bold;">
+        AI Assistant
+    </div>
+
+    <div id="chat-body"
+         style="flex: 1; padding: 10px; overflow-y: auto; background: #f8f9fa;">
+        <div style="background: #e9ecef; padding: 8px 12px;
+                    border-radius: 15px; display: inline-block; margin-bottom: 10px;">
+            Hello! Ask me about prices or products.
+        </div>
+    </div>
+
+    <div style="padding: 10px; border-top: 1px solid #ddd; display: flex;">
+        <input type="text"
+               id="userMsg"
+               placeholder="Type here..."
+               style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 5px;"
+               onkeypress="handleEnter(event)">
+        <button onclick="sendMessage()"
+                style="margin-left: 5px; background: #198754; color: white;
+                       border: none; padding: 5px 10px; border-radius: 5px;
+                       cursor: pointer;">
+            Send
+        </button>
+    </div>
+</div>
+
+<script>
+    function toggleChat() {
+        const chat = document.getElementById("chat-window");
+        chat.style.display = chat.style.display === "flex" ? "none" : "flex";
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    function sendMessage() {
+        const input = document.getElementById("userMsg");
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        const chatBody = document.getElementById("chat-body");
+
+        chatBody.innerHTML += `
+            <div style="text-align: right; margin-bottom: 10px;">
+                <div style="background: #0d6efd; color: white;
+                            padding: 8px 12px; border-radius: 15px;
+                            display: inline-block; text-align: left;">
+                    ${msg}
+                </div>
+            </div>
+        `;
+
+        input.value = "";
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        fetch(`/chatbot/?msg=${encodeURIComponent(msg)}`)
+            .then(res => res.json())
+            .then(data => {
+                chatBody.innerHTML += `
+                    <div style="text-align: left; margin-bottom: 10px;">
+                        <div style="background: #e9ecef; color: black;
+                                    padding: 8px 12px; border-radius: 15px;
+                                    display: inline-block;">
+                            ${data.response}
+                        </div>
+                    </div>
+                `;
+                chatBody.scrollTop = chatBody.scrollHeight;
+            });
+    }
+</script>
+<div class="row mt-5">
+    <div class="col-md-12 text-center">
+        <div class="btn-group" role="group">
+            {% if products.has_previous %}
+                <a href="?page=1" class="btn btn-outline-primary">&laquo; First</a>
+                <a href="?page={{ products.previous_page_number }}" class="btn btn-outline-primary">Previous</a>
+            {% endif %}
+
+            <button class="btn btn-primary disabled">
+                Page {{ products.number }} of {{ products.paginator.num_pages }}
+            </button>
+
+            {% if products.has_next %}
+                <a href="?page={{ products.next_page_number }}" class="btn btn-outline-primary">Next</a>
+                <a href="?page={{ products.paginator.num_pages }}" class="btn btn-outline-primary">Last &raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

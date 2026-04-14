@@ -1,0 +1,153 @@
+{% extends 'store/base.html' %}
+{% load static %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow-sm mb-4" id="form-wrapper">
+            <div class="card-body">
+                <h4 class="mb-3">Shipping Information</h4>
+                <form id="form">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <input class="form-control" type="text" name="name" placeholder="Full Name.." required>
+                        </div>
+                        <div class="col-md-6">
+                            <input class="form-control" type="email" name="email" placeholder="Email.." required>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <input class="form-control" type="text" name="address" placeholder="Address.." required>
+                        </div>
+                        <div class="col-md-4">
+                            <input class="form-control" type="text" name="city" placeholder="City.." required>
+                        </div>
+                        <div class="col-md-4">
+                            <input class="form-control" type="text" name="state" placeholder="State.." required>
+                        </div>
+                        <div class="col-md-4">
+                            <input class="form-control" type="text" name="zipcode" placeholder="Zip Code.." required>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <h5 class="mb-3">Payment Method</h5>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="cod" value="cod" checked onchange="togglePayment()">
+                        <label class="form-check-label" for="cod">Cash on Delivery (COD)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="jazzcash" value="jazzcash" onchange="togglePayment()">
+                        <label class="form-check-label" for="jazzcash">JazzCash / EasyPaisa</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="card" value="card" onchange="togglePayment()">
+                        <label class="form-check-label" for="card">Credit/Debit Card</label>
+                    </div>
+
+                    <div id="jazzcash-info" class="alert alert-warning mt-3" style="display:none;">
+                        <small>Please send <strong>PKR {{ order.get_cart_total|floatformat:2 }}</strong> to JazzCash: <strong>0300-1234567</strong> and enter Transaction ID below.</small>
+                        <input class="form-control mt-2" type="text" placeholder="Enter Transaction ID (e.g. TID12345)">
+                    </div>
+                    
+                    <div id="card-info" class="alert alert-info mt-3" style="display:none;">
+                        <small>Card payments are processed securely via Stripe.</small>
+                        <input class="form-control mt-2" type="text" placeholder="Card Number (XXXX-XXXX-XXXX-XXXX)">
+                        <div class="row mt-2">
+                            <div class="col-6"><input class="form-control" placeholder="MM/YY"></div>
+                            <div class="col-6"><input class="form-control" placeholder="CVC"></div>
+                        </div>
+                    </div>
+
+                    <input id="form-button" class="btn btn-success btn-block w-100 mt-4" type="submit" value="Place Order">
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h4>Order Summary</h4>
+                <hr>
+                {% for item in items %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center">
+                        {% if item.product.image %}
+                            <img class="row-image" src="{{ item.product.image.url }}" style="width: 50px; margin-right: 10px;">
+                        {% endif %}
+                        <div>
+                            <h6 class="my-0">{{ item.product.name }}</h6>
+                            <small class="text-muted">Qty: {{ item.quantity }}</small>
+                        </div>
+                    </div>
+                    <span class="text-muted">${{ item.get_total|floatformat:2 }}</span>
+                </div>
+                {% endfor %}
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <h5>Total Items:</h5>
+                    <h5>{{ order.get_cart_items }}</h5>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <h4>Grand Total:</h4>
+                    <h4 class="text-success">${{ order.get_cart_total|floatformat:2 }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toggle Payment Fields
+    function togglePayment() {
+        document.getElementById('jazzcash-info').style.display = document.getElementById('jazzcash').checked ? 'block' : 'none';
+        document.getElementById('card-info').style.display = document.getElementById('card').checked ? 'block' : 'none';
+    }
+
+    // Handle Form Submission (Place Order)
+    var form = document.getElementById('form');
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        console.log('Form Submitted...');
+        document.getElementById('form-button').classList.add("hidden");
+        
+        var userFormData = {
+            'name': form.name.value,
+            'email': form.email.value,
+            'total': '{{ order.get_cart_total }}',
+        }
+
+        var shippingInfo = {
+            'address': form.address.value,
+            'city': form.city.value,
+            'state': form.state.value,
+            'zipcode': form.zipcode.value,
+        }
+
+        submitFormData(userFormData, shippingInfo);
+    });
+
+    function submitFormData(userFormData, shippingInfo){
+        console.log('Payment button clicked');
+        var url = "/process_order/";
+
+        fetch(url, {
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'X-CSRFToken':csrftoken,
+            }, 
+            body:JSON.stringify({'form':userFormData, 'shipping':shippingInfo})
+        })
+        .then((response) => response.json())
+        .then((data) => {
+            console.log('Success:', data);
+            alert('Transaction completed');
+            window.location.href = "{% url 'store' %}";
+        });
+    }
+</script>
+{% endblock %}
