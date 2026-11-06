@@ -3,11 +3,9 @@ from django.http import JsonResponse
 import json
 import datetime
 from .models import *
+from recommendations.engine import recommend_similar_products
 from django.core.paginator import Paginator
 # AI Imports
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import pandas as pd
 # Auth Imports
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import authenticate, login, logout
@@ -127,24 +125,9 @@ def product_detail(request, pk):
 
     product = Product.objects.get(id=pk)
 
-    # AI Logic
-    products = list(Product.objects.all().values('id', 'name', 'description'))
-    df = pd.DataFrame(products)
-    recommendations = []
-    
-    if len(df) > 1:
-        tfidf = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = tfidf.fit_transform(df['description'].fillna(''))
-        idx_list = df.index[df['id'] == product.id].tolist()
-        if idx_list:
-            idx = idx_list[0]
-            cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-            sim_scores = list(enumerate(cosine_sim[idx]))
-            sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-            sim_scores = sim_scores[1:4]
-            product_indices = [i[0] for i in sim_scores]
-            rec_ids = df.iloc[product_indices]['id'].tolist()
-            recommendations = Product.objects.filter(id__in=rec_ids)
+    # Reusable content-based recommendation service.
+    catalog = list(Product.objects.all())
+    recommendations = recommend_similar_products(catalog, product.id, limit=3)
 
     context = {'product':product, 'cartItems':cartItems, 'recommendations':recommendations}
     return render(request, 'store/product_detail.html', context)
